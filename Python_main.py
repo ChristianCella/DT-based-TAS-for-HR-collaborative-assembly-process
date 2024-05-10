@@ -23,10 +23,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client : # creation of
     """  
     while trigger_end < Nsim - 1 : # keep looping until you receive a variable that is smaller than the maximum number of iterations
         
-        print("\n")
-        print(f" -*-*-*-*-*-*-*- The current simulation on TPS is the number: {trigger_end + 1} -*-*-*-*-*-*-*- ")
-        print("\n")
-        
         # a) receive the kpi(s) (parameters to be optimized) from the C# code (they are surely integers)
 
         owas_values = client.recv(1024).decode()
