@@ -11,7 +11,6 @@ trigger_end = 0
 Nsim = 2
 additional_var = 1
 
-#commento
 # Start the real communication
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client : # creation of the socket
 
