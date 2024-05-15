@@ -1,3 +1,14 @@
+/*
+This snippet allows to create 'Pick&place' operations leveraging the new exposed functionalities; as an example, the way in which the human grasps
+the object is much better than it was previolusly. The sequence of operations is the following:
+	- 'Get' task to grasp the object
+	- 'Pose' task to reach an intermediate pose
+	- 'Put' task to place the object
+	- 'Pose' task to reach the initial/final pose
+The poses can now be imposed by calling their name (e.g. 'Leaned', 'UserHome', etc.), after creating them in the library.
+This code is a more refined version of 'HumanCreateOperationNewAPI.cs'.
+*/
+
 using System;
 using System.IO;
 using System.Collections.Generic;
@@ -22,29 +33,29 @@ public class MainScript
     public static void MainWithOutput(ref StringWriter output)
     {   
     	// Set some control variables   	
-    	string selected_name = "GetDrill";
+    	string selected_name = "Pick&PlaceObject";
     	
     	int posx_pick = 400;
     	int posy_pick = 300;
     	int posz_pick = 25;
     	
     	int posx_place = 400;
-    	int posy_place = 100;
+    	int posy_place = -200;
     	int posz_place = 25;
     	
+    	//double rot_y = Math.PI / 2;
     	double rot_y = 0;
     	
-    	// Initialization variables for the pick and place   	
+    	// Initialization variables for the pick and place 	
     	TxHumanTsbSimulationOperation op = null; 
     	TxHumanTSBTaskCreationDataEx taskCreationData = new TxHumanTSBTaskCreationDataEx();
-    	TxHumanTSBTaskCreationDataEx taskCreationData1 = new TxHumanTSBTaskCreationDataEx();
-    	
+    	    	
         // Get the human		
 		TxObjectList humans = TxApplication.ActiveSelection.GetItems();
 		humans = TxApplication.ActiveDocument.GetObjectsByName("Jack");
 		TxHuman human = humans[0] as TxHuman;
 		
-		// Get the reference frame of the cube		
+		// Get the reference frame of the object		
 		TxObjectList refs = TxApplication.ActiveSelection.GetItems();
 		refs = TxApplication.ActiveDocument.GetObjectsByName("fr_cube");
 		TxFrame fram = refs[0] as TxFrame;
@@ -58,7 +69,7 @@ public class MainScript
 		TxHumanPosture posture_home = human.GetPosture(); 
 		TxApplication.RefreshDisplay();
 		
-		// Get the cube for the pick		
+		// Get the object for the pick	(Also, refresh the display)	
 		TxObjectList cube_pick = TxApplication.ActiveSelection.GetItems();
 		cube_pick = TxApplication.ActiveDocument.GetObjectsByName("YAOSC_cube1");
 		var cube1 = cube_pick[0] as ITxLocatableObject;
@@ -66,34 +77,27 @@ public class MainScript
 		var position_pick = new TxTransformation(cube1.AbsoluteLocation);
 		position_pick.Translation = new TxVector(posx_pick, posy_pick, posz_pick);
 		cube1.AbsoluteLocation = position_pick;
-		
-		// Move (and rotate around y) the object to the 'place' desired location							
-		
-		
+									
 		TxApplication.RefreshDisplay();
 		
 		// Decide which hand should grasp the cube as a function of the position of the cube		
 		if (posy_pick >= 0) // grasp with right hand
     	{
     		taskCreationData.Effector = HumanTsbEffector.RIGHT_HAND;
-    		/*
     		TxTransformation rightHandTarget = null;
         	taskCreationData.RightHandAutoGrasp = true;
         	rightHandTarget = new TxTransformation();
         	rightHandTarget = (fram as ITxLocatableObject).AbsoluteLocation;
         	taskCreationData.RightHandAutoGraspTargetLocation =  rightHandTarget *= new TxTransformation(new TxVector(0, 0, 30), TxTransformation.TxTransformationType.Translate);
-			*/
     	}
     	else // Grasp with left hand
     	{
     		taskCreationData.Effector = HumanTsbEffector.LEFT_HAND;
-    		/*
 			TxTransformation leftHandTarget = null;
         	taskCreationData.LeftHandAutoGrasp = true;
         	leftHandTarget = new TxTransformation();
         	leftHandTarget = (fram as ITxLocatableObject).AbsoluteLocation;
         	taskCreationData.LeftHandAutoGraspTargetLocation =  leftHandTarget *= new TxTransformation(new TxVector(0, 0, 30), TxTransformation.TxTransformationType.Translate);
-    		*/
     	}  
     	
     	// Create the simulation  		
@@ -103,7 +107,7 @@ public class MainScript
 		taskCreationData.Human = human;						
 		taskCreationData.PrimaryObject = cube1;               			
 		taskCreationData.TaskType = TsbTaskType.HUMAN_Get;	
-		//taskCreationData.KeepUninvolvedHandStill = true;				
+		taskCreationData.KeepUninvolvedHandStill = true;				
 		TxHumanTsbTaskOperation tsbGetTask = op.CreateTask(taskCreationData);
 		
 		// cache the current location of the object			
@@ -118,14 +122,14 @@ public class MainScript
 		taskCreationData.TaskDuration = 0.7;		
    		TxHumanTsbTaskOperation tsbPoseTaskInt = op.CreateTask(taskCreationData, tsbGetTask);  		
    		
-   		// Set the place position
-   		//var position_place = new TxTransformation(cube1.AbsoluteLocation);
-		position_pick.Translation = new TxVector(posx_place, posy_place, posz_place);
-   		cube1.AbsoluteLocation = position_pick;
+   		// Set the place position (if you need, also rotate the object)
+   		TxTransformation rotY = new TxTransformation(new TxVector(0, rot_y, 0), 
+		TxTransformation.TxRotationType.RPY_XYZ);
+		cube1.AbsoluteLocation = rotY;
 		
-		output.Write("x: " + position_pick[0, 3].ToString() + output.NewLine);
-		output.Write("y: " + position_pick[1, 3].ToString() + output.NewLine);
-		output.Write("z: " + position_pick[2, 3].ToString() + output.NewLine);
+   		var position_place = new TxTransformation(cube1.AbsoluteLocation);
+		position_place.Translation = new TxVector(posx_place, posy_place, posz_place);
+   		cube1.AbsoluteLocation = position_place;
 				
 		// Create the 'put' task			
 		taskCreationData.Human = human;
