@@ -6,4 +6,4 @@ The first thing to do is to copy and paste 'TPS_main.cs' in the '.NET Script' vi
 The python code takes the 5 values from C# and uses them as inputs to enter in the hard-coded table in 'OWAS_table.py': by crossing rows and columns, a sinlge value is obtained and it is fed back to C#.
 
 ## Snippets
-Please do not change the snippets present in the folder 'C#_snippets'
+Please do not change the snippets present in the folder 'C#_snippets'; the snippet 'HumanScrewingOperation.cs' is not ready yet.

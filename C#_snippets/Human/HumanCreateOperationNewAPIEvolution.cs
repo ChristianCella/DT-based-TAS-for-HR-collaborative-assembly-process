@@ -36,17 +36,14 @@ public class MainScript
     	// Set some control variables   	
     	string selected_name = "Pick&PlaceObject";
     	
-    	int posx_pick = 400;
-    	int posy_pick = 300;
-    	int posz_pick = 25;
+    	int posx_pick = 550;
+    	int posy_pick = -350;
+    	int posz_pick = 0;
     	
     	int posx_place = 400;
     	int posy_place = -200;
-    	int posz_place = 25;
-    	
-    	//double rot_y = Math.PI / 2;
-    	double rot_y = 0;
-    	
+    	int posz_place = 0;
+    	    	
     	// Initialization variables for the pick and place 	
     	TxHumanTsbSimulationOperation op = null; 
     	TxHumanTSBTaskCreationDataEx taskCreationData = new TxHumanTSBTaskCreationDataEx();
@@ -58,7 +55,7 @@ public class MainScript
 		
 		// Get the reference frame of the object		
 		TxObjectList refs = TxApplication.ActiveSelection.GetItems();
-		refs = TxApplication.ActiveDocument.GetObjectsByName("fr_cube");
+		refs = TxApplication.ActiveDocument.GetObjectsByName("fr_drill");
 		TxFrame fram = refs[0] as TxFrame;
 		
 		// Apply a certain position to the human and save it in a variable
@@ -72,7 +69,7 @@ public class MainScript
 		
 		// Get the object for the pick	(Also, refresh the display)	
 		TxObjectList cube_pick = TxApplication.ActiveSelection.GetItems();
-		cube_pick = TxApplication.ActiveDocument.GetObjectsByName("YAOSC_cube1");
+		cube_pick = TxApplication.ActiveDocument.GetObjectsByName("Drill");
 		var cube1 = cube_pick[0] as ITxLocatableObject;
 		
 		var position_pick = new TxTransformation(cube1.AbsoluteLocation);
@@ -124,7 +121,7 @@ public class MainScript
    		// Set the place position (if you need, also rotate the object)		
    		var position_place = new TxTransformation(cube1.AbsoluteLocation);
 		position_place.Translation = new TxVector(posx_place, posy_place, posz_place);
-		position_place.RotationRPY_ZYX = new TxVector(0, 0, 0);
+		position_place.RotationRPY_ZYX = new TxVector(0, 0, Math.PI/2);
 				
 		// Create the 'put' task			
 		taskCreationData.Human = human;
