@@ -6,6 +6,7 @@ the object is much better than it was previolusly. The sequence of operations is
 	- 'Put' task to place the object
 	- 'Pose' task to reach the initial/final pose
 The poses can now be imposed by calling their name (e.g. 'Leaned', 'UserHome', etc.), after creating them in the library.
+With the new APIs, the way in which positions of pick and place are set is more intuitive and direct.
 This code is a more refined version of 'HumanCreateOperationNewAPI.cs'.
 */
 
@@ -76,7 +77,7 @@ public class MainScript
 		
 		var position_pick = new TxTransformation(cube1.AbsoluteLocation);
 		position_pick.Translation = new TxVector(posx_pick, posy_pick, posz_pick);
-		cube1.AbsoluteLocation = position_pick;
+		position_pick.RotationRPY_ZYX = new TxVector(0, 0, 0);
 									
 		TxApplication.RefreshDisplay();
 		
@@ -106,12 +107,10 @@ public class MainScript
     	// Create the 'get' task 		
 		taskCreationData.Human = human;						
 		taskCreationData.PrimaryObject = cube1;               			
-		taskCreationData.TaskType = TsbTaskType.HUMAN_Get;	
+		taskCreationData.TaskType = TsbTaskType.HUMAN_Get;
+		taskCreationData.TargetLocation = position_pick;	
 		taskCreationData.KeepUninvolvedHandStill = true;				
 		TxHumanTsbTaskOperation tsbGetTask = op.CreateTask(taskCreationData);
-		
-		// cache the current location of the object			
-		TxTransformation curLoc = cube1.AbsoluteLocation;
 		
 		// Set the intermediate pose to be reached by the human
 		human.SetPosture(posture_lean);		
@@ -122,23 +121,17 @@ public class MainScript
 		taskCreationData.TaskDuration = 0.7;		
    		TxHumanTsbTaskOperation tsbPoseTaskInt = op.CreateTask(taskCreationData, tsbGetTask);  		
    		
-   		// Set the place position (if you need, also rotate the object)
-   		TxTransformation rotY = new TxTransformation(new TxVector(0, rot_y, 0), 
-		TxTransformation.TxRotationType.RPY_XYZ);
-		cube1.AbsoluteLocation = rotY;
-		
+   		// Set the place position (if you need, also rotate the object)		
    		var position_place = new TxTransformation(cube1.AbsoluteLocation);
 		position_place.Translation = new TxVector(posx_place, posy_place, posz_place);
-   		cube1.AbsoluteLocation = position_place;
+		position_place.RotationRPY_ZYX = new TxVector(0, 0, 0);
 				
 		// Create the 'put' task			
 		taskCreationData.Human = human;
-   		taskCreationData.PrimaryObject = cube1;					
+   		taskCreationData.PrimaryObject = cube1;
+   		taskCreationData.TargetLocation = position_place;					
    		taskCreationData.TaskType = TsbTaskType.HUMAN_Put;			
    		TxHumanTsbTaskOperation tsbPutTask = op.CreateTask(taskCreationData, tsbPoseTaskInt);
-   		
-   		// Move the object back to it's cached location  			
-   		cube1.AbsoluteLocation = curLoc;
    		
    		// Set the correct pose to be reached by the human
 		human.SetPosture(posture_home);
