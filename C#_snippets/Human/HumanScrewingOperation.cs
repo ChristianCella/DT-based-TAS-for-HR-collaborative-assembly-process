@@ -37,10 +37,10 @@ public class MainScript
     public static void MainWithOutput(ref StringWriter output)
     {   
     	// Set some control variables   	
-    	string selected_name = "CorrectScrewingOperation";
+    	string selected_name = "Attempt";
     	
     	int posx_pick_cube = 400;
-    	int posy_pick_cube = 300;
+    	int posy_pick_cube = -300;
     	int posz_pick_cube = 25;
     	
     	int posx_place_cube = 300;
@@ -52,7 +52,7 @@ public class MainScript
     	int posz_place_cube_screwing = 180;
     	
     	int posx_pick_drill = 550;
-    	int posy_pick_drill = -350;
+    	int posy_pick_drill = 350;
     	int posz_pick_drill = 0;
     	
     	int posx_place_drill = 450;
@@ -111,7 +111,7 @@ public class MainScript
 		
 		// Get the reference frame of the cube		
 		TxObjectList ref_frame_drill = TxApplication.ActiveSelection.GetItems();
-		ref_frame_drill = TxApplication.ActiveDocument.GetObjectsByName("fr_drill");
+		ref_frame_drill = TxApplication.ActiveDocument.GetObjectsByName("fr_drill_right");
 		TxFrame frame_drill = ref_frame_drill[0] as TxFrame;
 		
 		// Refresh the display							
@@ -162,7 +162,7 @@ public class MainScript
    		// Set the place position associated to the first 'get' task		
    		var position_place_cube = new TxTransformation(cube.AbsoluteLocation);
 		position_place_cube.Translation = new TxVector(posx_place_cube, posy_place_cube, posz_place_cube);
-		position_place_cube.RotationRPY_ZYX = new TxVector(-Math.PI/2, 0, 0);
+		position_place_cube.RotationRPY_ZYX = new TxVector(Math.PI/2, 0, 0);
 				
 		// Create the first 'put' task (prepare the object for a screwing operation)		
 		taskCreationData.Human = human;
@@ -236,7 +236,7 @@ public class MainScript
    		// Set the position of the cube after screwing it (target location for the 'move' task)	
    		var position_place_screw = new TxTransformation(cube.AbsoluteLocation);
 		position_place_screw.Translation = new TxVector(posx_place_cube_screwing, posy_place_cube_screwing, posz_place_cube_screwing);
-		position_place_screw.RotationRPY_ZYX = new TxVector(-Math.PI/2, 0, 0);
+		position_place_screw.RotationRPY_ZYX = new TxVector(Math.PI/2, 0, 0);
    		
    		// Move the cube	
    		taskCreationData2.PrimaryObject = cube;               
@@ -265,3 +265,4 @@ public class MainScript
    		TxHumanTsbTaskOperation tsbPoseTask = op.CreateTask(taskCreationData, tsbPutTask2);
     }
 }
+
