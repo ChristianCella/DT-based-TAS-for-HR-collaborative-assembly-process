@@ -1,5 +1,7 @@
 /*
-This snippet allows to create a Frame and associate it to as selected object (of class TxComponent).
+This snippet allows to create a Frame and associate it to as selected object (of class TxComponent). The problem is that the object msut be opened in 
+'SetModellingScope' in the simulator, otherwise an error is thrown.
+Look at 'CreateFrameEvolution.cs' for a more complete example.
 */
  
 using System.Collections;
