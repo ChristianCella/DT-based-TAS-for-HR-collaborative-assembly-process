@@ -1,4 +1,16 @@
 /*
+This snippet implements a complete operation of screwing. The new APIs allow to grasp objects in a more robust way and also it is possible to specify
+the target location for the grasp by passing a reference frame that mut be attached to the object. The sequence of operations is the following:
+	- 'get' task to grasp the object;
+	- 'pose' task to reach a certain pose (intermediate);
+	- 'put' task to place the object in a certain position (maybe also specifying the orientation);
+	- 'get' task to grasp the drill;
+	- 'put' task to place the drill in a certain position;
+	- 'get' task to grasp the drill again (regrasp);
+	- 'move' task to move the object in a certain position (screwing-like operation);
+	- 'put' task to place the drill back in the original position;
+	- 'pose' task to reach the initial pose.
+The script is a bit more complex than the previous one, and what is left to do is to see how specify 2 different frames for the two hands foir each object.
 */
 
 using System;
@@ -25,7 +37,7 @@ public class MainScript
     public static void MainWithOutput(ref StringWriter output)
     {   
     	// Set some control variables   	
-    	string selected_name = "ScrewingOperation";
+    	string selected_name = "CorrectScrewingOperation";
     	
     	int posx_pick_cube = 400;
     	int posy_pick_cube = 300;
@@ -33,33 +45,39 @@ public class MainScript
     	
     	int posx_place_cube = 300;
     	int posy_place_cube = 0;
-    	int posz_place_cube = 120;
+    	int posz_place_cube = 180;
     	
     	int posx_place_cube_screwing = 250;
     	int posy_place_cube_screwing = 0;
-    	int posz_place_cube_screwing = 120;
+    	int posz_place_cube_screwing = 180;
     	
     	int posx_pick_drill = 550;
     	int posy_pick_drill = -350;
     	int posz_pick_drill = 0;
     	
-    	int posx_place_drill = 380;
+    	int posx_place_drill = 450;
     	int posy_place_drill = 0;
     	int posz_place_drill = 20;
     	    	
     	// Initialization variables for the pick and place 	
     	TxHumanTsbSimulationOperation op = null; 
-    	TxHumanTSBTaskCreationDataEx taskCreationData = new TxHumanTSBTaskCreationDataEx();
-    	TxHumanTSBTaskCreationDataEx taskCreationData1 = new TxHumanTSBTaskCreationDataEx();
-    	TxHumanTSBTaskCreationDataEx taskCreationData2 = new TxHumanTSBTaskCreationDataEx();
+    	TxHumanTSBTaskCreationDataEx taskCreationData = new TxHumanTSBTaskCreationDataEx(); // For the cube
+    	TxHumanTSBTaskCreationDataEx taskCreationData1 = new TxHumanTSBTaskCreationDataEx(); // For the pose
+    	TxHumanTSBTaskCreationDataEx taskCreationData2 = new TxHumanTSBTaskCreationDataEx(); // For the drill
     	TxHumanTSBTaskCreationDataEx taskCreationData3 = new TxHumanTSBTaskCreationDataEx();
+    	
+    	// Initialize the target locations
+    	TxTransformation rightHandTarget = null;
+    	TxTransformation leftHandTarget = null;
+    	TxTransformation rightHandTarget2 = null;
+    	TxTransformation leftHandTarget2 = null;
     	    	
         // Get the human		
 		TxObjectList humans = TxApplication.ActiveSelection.GetItems();
 		humans = TxApplication.ActiveDocument.GetObjectsByName("Jack");
 		TxHuman human = humans[0] as TxHuman;
 		
-		// Apply a certain position to the human and save it in a variable
+		// Apply a certain position to the human and save it in some variables
 		human.ApplyPosture("Leaned");
 		TxHumanPosture posture_lean = human.GetPosture();
 		TxApplication.RefreshDisplay();
@@ -68,21 +86,21 @@ public class MainScript
 		TxHumanPosture posture_home = human.GetPosture(); 
 		TxApplication.RefreshDisplay();
 		
-		// Get the object for the pick	(Also, refresh the display)	
+		// Get the object for the pick and specify the initial pick position	
 		TxObjectList cube_pick = TxApplication.ActiveSelection.GetItems();
 		cube_pick = TxApplication.ActiveDocument.GetObjectsByName("YAOSC_cube1");
-		var cube1 = cube_pick[0] as ITxLocatableObject;
+		var cube = cube_pick[0] as ITxLocatableObject;
 		
-		var position_pick = new TxTransformation(cube1.AbsoluteLocation);
-		position_pick.Translation = new TxVector(posx_pick_cube, posy_pick_cube, posz_pick_cube);
-		position_pick.RotationRPY_ZYX = new TxVector(0, 0, 0);
+		var position_pick_cube = new TxTransformation(cube.AbsoluteLocation);
+		position_pick_cube.Translation = new TxVector(posx_pick_cube, posy_pick_cube, posz_pick_cube);
+		position_pick_cube.RotationRPY_ZYX = new TxVector(0, 0, 0);
 		
 		// Get the reference frame of the cube		
 		TxObjectList ref_frame_cube = TxApplication.ActiveSelection.GetItems();
 		ref_frame_cube = TxApplication.ActiveDocument.GetObjectsByName("fr_cube");
 		TxFrame frame_cube = ref_frame_cube[0] as TxFrame;
 		
-		// Get the drill	
+		// Get the drill and specify the initial pick psoition	
 		TxObjectList drill_pick = TxApplication.ActiveSelection.GetItems();
 		drill_pick = TxApplication.ActiveDocument.GetObjectsByName("Drill");
 		var drill = drill_pick[0] as ITxLocatableObject;
@@ -95,14 +113,14 @@ public class MainScript
 		TxObjectList ref_frame_drill = TxApplication.ActiveSelection.GetItems();
 		ref_frame_drill = TxApplication.ActiveDocument.GetObjectsByName("fr_drill");
 		TxFrame frame_drill = ref_frame_drill[0] as TxFrame;
-									
+		
+		// Refresh the display							
 		TxApplication.RefreshDisplay();
 		
-		// Decide which hand should grasp the cube as a function of the position of the cube		
+		// Decide which hand should grasp the object as a function of its position	
 		if (posy_pick_cube >= 0) // grasp with right hand
     	{
-    		taskCreationData.Effector = HumanTsbEffector.RIGHT_HAND;
-    		TxTransformation rightHandTarget = null;
+    		taskCreationData.Effector = HumanTsbEffector.RIGHT_HAND;    		
         	taskCreationData.RightHandAutoGrasp = true;
         	rightHandTarget = new TxTransformation();
         	rightHandTarget = (frame_cube as ITxLocatableObject).AbsoluteLocation;
@@ -111,7 +129,6 @@ public class MainScript
     	else // Grasp with left hand
     	{
     		taskCreationData.Effector = HumanTsbEffector.LEFT_HAND;
-			TxTransformation leftHandTarget = null;
         	taskCreationData.LeftHandAutoGrasp = true;
         	leftHandTarget = new TxTransformation();
         	leftHandTarget = (frame_cube as ITxLocatableObject).AbsoluteLocation;
@@ -123,132 +140,128 @@ public class MainScript
     	op.SetInitialContext();
         op.ForceResimulation();
         
-    	// Create the 'get' task 		
+    	// Create the first 'get' task 		
 		taskCreationData.Human = human;						
-		taskCreationData.PrimaryObject = cube1;               			
+		taskCreationData.PrimaryObject = cube;               			
 		taskCreationData.TaskType = TsbTaskType.HUMAN_Get;
-		taskCreationData.TargetLocation = position_pick;	
+		taskCreationData.TargetLocation = position_pick_cube;	
 		taskCreationData.KeepUninvolvedHandStill = true;				
-		TxHumanTsbTaskOperation tsbGetTask = op.CreateTask(taskCreationData);		
+		TxHumanTsbTaskOperation tsbGetTask = op.CreateTask(taskCreationData);
+		op.ApplyTask(tsbGetTask, 1);
+   		TxApplication.RefreshDisplay();		
 		
-		// cache the current location of the object			
-		TxTransformation curLoc = cube1.AbsoluteLocation;
-		
-		// Set the intermediate pose to be reached by the human
-		human.SetPosture(posture_lean);		
-		
-		// Create the 'pose' task		
+		// Set the intermediate pose to be reached by the human and create the 'pose' task
+		human.SetPosture(posture_lean);			
 		taskCreationData.Human = human;					
    		taskCreationData.TaskType = TsbTaskType.HUMAN_Pose;	
 		taskCreationData.TaskDuration = 0.7;		
-   		TxHumanTsbTaskOperation tsbPoseTaskInt = op.CreateTask(taskCreationData, tsbGetTask);  		
+   		TxHumanTsbTaskOperation tsbPoseTaskInt = op.CreateTask(taskCreationData, tsbGetTask); 
+   		op.ApplyTask(tsbPoseTaskInt, 1);
+   		TxApplication.RefreshDisplay(); 		
    		
-   		// Set the place position (if you need, also rotate the object)		
-   		var position_place = new TxTransformation(cube1.AbsoluteLocation);
-		position_place.Translation = new TxVector(posx_place_cube, posy_place_cube, posz_place_cube);
-		position_place.RotationRPY_ZYX = new TxVector(-Math.PI/2, 0, 0);
+   		// Set the place position associated to the first 'get' task		
+   		var position_place_cube = new TxTransformation(cube.AbsoluteLocation);
+		position_place_cube.Translation = new TxVector(posx_place_cube, posy_place_cube, posz_place_cube);
+		position_place_cube.RotationRPY_ZYX = new TxVector(-Math.PI/2, 0, 0);
 				
-		// Create the 'put' task			
+		// Create the first 'put' task (prepare the object for a screwing operation)		
 		taskCreationData.Human = human;
-   		taskCreationData.PrimaryObject = cube1;
-   		taskCreationData.TargetLocation = position_place;					
+   		taskCreationData.PrimaryObject = cube;
+   		taskCreationData.TargetLocation = position_place_cube;					
    		taskCreationData.TaskType = TsbTaskType.HUMAN_Put;			
    		TxHumanTsbTaskOperation tsbPutTask = op.CreateTask(taskCreationData, tsbPoseTaskInt);
+   		op.ApplyTask(tsbPutTask, 1);
+   		TxApplication.RefreshDisplay();
    		
-   		// Move the object back to it's cached location  			
-   		cube1.AbsoluteLocation = curLoc;
-   		
-   		// Decide which hand should grasp the drill as a function of its position	
-   			
+   		// Decide which hand should grasp the drill as a function of its position	  			
 		if (posy_pick_drill >= 0) // grasp with right hand
     	{
     		taskCreationData1.Effector = HumanTsbEffector.RIGHT_HAND;
-    		TxTransformation rightHandTarget = null;
         	taskCreationData1.RightHandAutoGrasp = true;
-        	rightHandTarget = new TxTransformation();
-        	rightHandTarget = (frame_drill as ITxLocatableObject).AbsoluteLocation;
-        	taskCreationData1.RightHandAutoGraspTargetLocation =  rightHandTarget *= new TxTransformation(new TxVector(0, 0, 30), TxTransformation.TxTransformationType.Translate);
+        	rightHandTarget2 = new TxTransformation();
+        	rightHandTarget2 = (frame_drill as ITxLocatableObject).AbsoluteLocation;
+        	taskCreationData1.RightHandAutoGraspTargetLocation =  rightHandTarget2 *= new TxTransformation(new TxVector(0, 0, 30), TxTransformation.TxTransformationType.Translate);
     	}
     	else // Grasp with left hand
     	{
     		taskCreationData1.Effector = HumanTsbEffector.LEFT_HAND;
-			TxTransformation leftHandTarget = null;
         	taskCreationData1.LeftHandAutoGrasp = true;
-        	leftHandTarget = new TxTransformation();
-        	leftHandTarget = (frame_drill as ITxLocatableObject).AbsoluteLocation;
-        	taskCreationData1.LeftHandAutoGraspTargetLocation =  leftHandTarget *= new TxTransformation(new TxVector(0, 0, 30), TxTransformation.TxTransformationType.Translate);
+        	leftHandTarget2 = new TxTransformation();
+        	leftHandTarget2 = (frame_drill as ITxLocatableObject).AbsoluteLocation;
+        	taskCreationData1.LeftHandAutoGraspTargetLocation =  leftHandTarget2 *= new TxTransformation(new TxVector(0, 0, 30), TxTransformation.TxTransformationType.Translate);
     	}
     	
-    	// Create the 'get' task (for the drill, the first time)	
+    	// Create the 'get' task for the drill	
 		taskCreationData1.Human = human;						
 		taskCreationData1.PrimaryObject = drill;               			
 		taskCreationData1.TaskType = TsbTaskType.HUMAN_Get;
 		taskCreationData1.TargetLocation = position_pick_drill;	
 		taskCreationData1.KeepUninvolvedHandStill = true;				
-		TxHumanTsbTaskOperation tsbGetTask1 = op.CreateTask(taskCreationData1, tsbPutTask);  
+		TxHumanTsbTaskOperation tsbGetTask1 = op.CreateTask(taskCreationData1, tsbPutTask); 
+		op.ApplyTask(tsbGetTask1, 1);
+   		TxApplication.RefreshDisplay(); 
 		
-		// Set the place position for the drill		
+		// Set the position to place the drill	
    		var position_place_drill = new TxTransformation(drill.AbsoluteLocation);
 		position_place_drill.Translation = new TxVector(posx_place_drill, posy_place_drill, posz_place_drill);
 		position_place_drill.RotationRPY_ZYX = new TxVector(0, 0, Math.PI/2);
 				
 		// Create the 'put' task for the drill			
-		taskCreationData1.Human = human;
    		taskCreationData1.PrimaryObject = drill;
    		taskCreationData1.TargetLocation = position_place_drill;
-   		taskCreationData.KeepUninvolvedHandStill = true;						
+   		taskCreationData1.KeepUninvolvedHandStill = true;						
    		taskCreationData1.TaskType = TsbTaskType.HUMAN_Put;			
    		TxHumanTsbTaskOperation tsbPutTask1 = op.CreateTask(taskCreationData1, tsbGetTask1);
+   		op.ApplyTask(tsbPutTask1, 1);
+   		TxApplication.RefreshDisplay();
    		
-   		var position_place1 = new TxTransformation(drill.AbsoluteLocation);
-		position_place1.Translation = new TxVector(posx_place_drill, posy_place_drill, 100);
-		position_place1.RotationRPY_ZYX = new TxVector(Math.PI/2, -Math.PI/2, Math.PI/2);
    		
-   		// Create the 'get' task to get the drill once more, before moving the cube		
-		taskCreationData3.Human = human;						
-		taskCreationData3.PrimaryObject = drill; 
-		taskCreationData3.KeepUninvolvedHandStill = true;
-		taskCreationData3.Effector = HumanTsbEffector.LEFT_HAND;
-		TxTransformation leftHandTarget1 = null;
-        taskCreationData3.LeftHandAutoGrasp = true;
-        leftHandTarget1 = new TxTransformation();
-        leftHandTarget1 = position_place1;
-        taskCreationData3.LeftHandAutoGraspTargetLocation =  leftHandTarget1 *= new TxTransformation(new TxVector(0, 0, 30), TxTransformation.TxTransformationType.Translate);      
-        taskCreationData3.TaskType = TsbTaskType.HUMAN_Get;
-		//taskCreationData3.TargetLocation = position_place_drill;					
-		TxHumanTsbTaskOperation tsbGetTask3 = op.CreateTask(taskCreationData3, tsbPutTask1); 
+   		// Create the new 'get' task to get the drill once more ('Immediate' regrasp), before moving the cube			
+		if (leftHandTarget2 != null & rightHandTarget2 == null)
+		{
+			leftHandTarget2 = (frame_drill as ITxLocatableObject).AbsoluteLocation;
+			taskCreationData1.LeftHandAutoGraspTargetLocation =  leftHandTarget2 *= new TxTransformation(new TxVector(0, 0, 30), TxTransformation.TxTransformationType.Translate);
+		}
+		else if (leftHandTarget2 == null & rightHandTarget2 != null)
+		{
+			rightHandTarget2 = (frame_drill as ITxLocatableObject).AbsoluteLocation;
+			taskCreationData1.RightHandAutoGraspTargetLocation =  rightHandTarget2 *= new TxTransformation(new TxVector(0, 0, 30), TxTransformation.TxTransformationType.Translate);
+		}			
+		taskCreationData1.PrimaryObject = drill; 
+        taskCreationData1.TaskType = TsbTaskType.HUMAN_Get;				
+		TxHumanTsbTaskOperation tsbGetTask2 = op.CreateTask(taskCreationData1, tsbPutTask1);
+		op.ApplyTask(tsbGetTask2, 1);
+   		TxApplication.RefreshDisplay(); 
    		
-   		// Set the position of the cube after screwing it	
-   		var position_place_screw = new TxTransformation(cube1.AbsoluteLocation);
+   		// Set the position of the cube after screwing it (target location for the 'move' task)	
+   		var position_place_screw = new TxTransformation(cube.AbsoluteLocation);
 		position_place_screw.Translation = new TxVector(posx_place_cube_screwing, posy_place_cube_screwing, posz_place_cube_screwing);
 		position_place_screw.RotationRPY_ZYX = new TxVector(-Math.PI/2, 0, 0);
    		
    		// Move the cube	
-   		taskCreationData2.PrimaryObject = cube1;               
+   		taskCreationData2.PrimaryObject = cube;               
 		taskCreationData2.TaskType = TsbTaskType.OBJECT_Move;
 		taskCreationData2.TargetLocation = position_place_screw;
 		taskCreationData2.KeepUninvolvedHandStill = true;
-		taskCreationData2.TaskDuration= 2;
-		TxHumanTsbTaskOperation tsbMoveTask = op.CreateTask(taskCreationData2, tsbGetTask3);
-		
-		     		
-		
-		
-		// Put the drill back to the original position			
+		taskCreationData2.TaskDuration= 1;
+		TxHumanTsbTaskOperation tsbMoveTask = op.CreateTask(taskCreationData2, tsbGetTask2);
+		op.ApplyTask(tsbMoveTask, 1);
+   		TxApplication.RefreshDisplay();
+		     				
+		// Put the drill back to the original position (the drill has already been re-grasped)		
 		taskCreationData.Human = human;
    		taskCreationData.PrimaryObject = drill;
    		taskCreationData.TargetLocation = position_pick_drill;					
    		taskCreationData.TaskType = TsbTaskType.HUMAN_Put;			
-   		TxHumanTsbTaskOperation tsbPutTask2 = op.CreateTask(taskCreationData, tsbMoveTask);	
+   		TxHumanTsbTaskOperation tsbPutTask2 = op.CreateTask(taskCreationData, tsbMoveTask);
+   		op.ApplyTask(tsbPutTask2, 1);
+   		TxApplication.RefreshDisplay();	
    		
-   		// Set the correct pose to be reached by the human
-		human.SetPosture(posture_home);
-		
-		// Create the 'pose' task		
+   		// Set the correct pose to be reached by the human and create the final 'pose' task
+		human.SetPosture(posture_home);	
 		taskCreationData.Human = human;					
    		taskCreationData.TaskType = TsbTaskType.HUMAN_Pose;	
 		taskCreationData.TaskDuration = 0.7;			
    		TxHumanTsbTaskOperation tsbPoseTask = op.CreateTask(taskCreationData, tsbPutTask2);
-
     }
 }
