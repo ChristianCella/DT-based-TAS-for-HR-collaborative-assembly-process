@@ -3,6 +3,13 @@ This snippet allows to create from scratch the program with which the robot will
 It is suppoosed that, in the very first operation, the flange of the robot is empty and the tool is placed in a specific position (usually fixed).
 The mounting (and, if necessary, the unmounting) of the tool is done in the third waypoint of the operation by implementing a OLP command.
 To be mor realistic, a wait time is added after the mounting command.
+The script can now target the newly created operation by name, no more by type (Sometimes there were problems).
+Some examples of points for the first tool are (points 1, 2, 5, 6 do not change): 
+	point3(350, 330, 180); point4(350, 330, 300);
+for the second tool:
+	point3(500, 330, 180); point4(500, 330, 300);
+The final step would be to create a frame, as the first step of the program, to substitute the current tcp_1 
+(new frame useful for the gripper)
 */
 
 using System.Collections;
@@ -21,7 +28,7 @@ public class MainScript
     {
 
 		// Define some variables
-		string operation_name = "PickTool1";
+		string operation_name = "PickTool2";
 		
 		string flange = "TOOLFRAME";
 		string new_tcp = "tcp_1";
@@ -42,6 +49,10 @@ public class MainScript
 		ITxObject Gripper_1 = TxApplication.ActiveDocument.
 		GetObjectsByName("Gripper 1")[0] as TxGripper;
 		
+		// Store the gripper "Camozzi gripper"  	
+		ITxObject Gripper_2 = TxApplication.ActiveDocument.
+		GetObjectsByName("Gripper 2")[0] as TxGripper;
+		
 		// Store the reference frame "tgripper_tf" 	
   		ITxObject toolframe = TxApplication.ActiveDocument.
 		GetObjectsByName("TOOLFRAME")[0] as TxFrame;
@@ -49,13 +60,9 @@ public class MainScript
     	// Create the new operation    	
     	TxContinuousRoboticOperationCreationData data = new TxContinuousRoboticOperationCreationData(operation_name);
     	TxApplication.ActiveDocument.OperationRoot.CreateContinuousRoboticOperation(data);
-    	
-		// Get the created operation
-    	TxTypeFilter opFilter = new TxTypeFilter(typeof(TxContinuousRoboticOperation));
-        TxOperationRoot opRoot = TxApplication.ActiveDocument.OperationRoot;
-                
- 		TxObjectList allOps = opRoot.GetAllDescendants(opFilter);
-        TxContinuousRoboticOperation MyOp = allOps[0] as TxContinuousRoboticOperation; // The index may change
+        
+        // Save the created operartion in a variable
+        TxContinuousRoboticOperation MyOp = TxApplication.ActiveDocument.GetObjectsByName(operation_name)[0] as TxContinuousRoboticOperation;
 
 		// Create all the necessary points       
         TxRoboticViaLocationOperationCreationData Point1 = new TxRoboticViaLocationOperationCreationData();
@@ -107,7 +114,7 @@ public class MainScript
 		ThirdPoint.AbsoluteLocation = rotX3;
 		
 		var pointC = new TxTransformation(ThirdPoint.AbsoluteLocation);
-		pointC.Translation = new TxVector(350, 330, 180);
+		pointC.Translation = new TxVector(500, 330, 180);
 		ThirdPoint.AbsoluteLocation = pointC;
 		
 		// Impose a position to the fourth waypoint		
@@ -116,7 +123,7 @@ public class MainScript
 		FourthPoint.AbsoluteLocation = rotX4;
 		
 		var pointD = new TxTransformation(FourthPoint.AbsoluteLocation);
-		pointD.Translation = new TxVector(350, 330, 300);
+		pointD.Translation = new TxVector(500, 330, 300);
 		FourthPoint.AbsoluteLocation = pointD;
 		
 		// Impose a position to the fifth waypoint		
@@ -197,9 +204,9 @@ public class MainScript
 		ArrayList elements2 = new ArrayList();
 		
 		var myCmd1 = new TxRoboticCompositeCommandStringElement("# Mount");
-    	var myCmd11 = new TxRoboticCompositeCommandTxObjectElement(Gripper_1);
+    	var myCmd11 = new TxRoboticCompositeCommandTxObjectElement(Gripper_2);
     	var myCmd12 = new TxRoboticCompositeCommandTxObjectElement(toolframe);		
-		var myCmd2 = new TxRoboticCompositeCommandStringElement("# WaitTime 2");
+		var myCmd2 = new TxRoboticCompositeCommandStringElement("# WaitTime 1");
 		
 		elements1.Add(myCmd1);
     	elements1.Add(myCmd11);
