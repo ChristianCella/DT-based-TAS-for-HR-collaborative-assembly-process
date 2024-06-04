@@ -80,12 +80,47 @@ class Program
 
                 int len = receivedArray.GetLength(1);
 
-                int num_op = len / base_val;
+                output.Write("The number of rows of the received array is: \n");
+                output.Write(len.ToString());
+                output.Write("\n");
 
+                int num_op = ((len - 1 - (receivedArray[0, len - 1] / 1000))/ base_val);
 
-                for (int jj = 0; jj < num_op; jj++)
+                output.Write("The number of operations is: \n");
+                output.Write(num_op.ToString());
+                output.Write("\n");
+
+                int num_robot_op = (receivedArray[0, len - 1]) / 1000;
+
+                output.Write("The number of robot operations is: \n");
+                output.Write(num_robot_op.ToString());
+                output.Write("\n");
+
+                for (int jj = 0; jj < num_robot_op; jj++)
                 {
-                    CreateRobotOperation(receivedArray[0, jj * base_val]/1000, receivedArray[0, jj * base_val + 1]/1000, receivedArray[0, jj * base_val + 2]/1000, receivedArray[0, jj * base_val + 3]/1000, robot);
+
+                    int rob_id = (receivedArray[0, len - 2 - jj])/1000;
+                    output.Write("The robot id is: \n");
+                    output.Write(rob_id.ToString());
+                    output.Write("\n");
+                    output.Write("Primo for \n");
+
+                    for (int ff = 0; ff < num_op; ff++)
+
+                    {
+                    
+                        output.Write("Secondo for \n");
+                        
+                        output.Write((ff*base_val+3).ToString());
+                        output.Write(((receivedArray[0, ff * base_val + 3]) / 1000).ToString() + output.NewLine);
+                        int curr_id = (receivedArray[0, ff * base_val + 3]) / 1000;
+                        if (curr_id == rob_id)
+
+                        {
+                            CreateRobotOperation(receivedArray[0, ff * base_val]/1000, receivedArray[0, ff * base_val + 1]/1000, receivedArray[0, ff * base_val + 2]/1000, receivedArray[0, ff * base_val + 3], robot);
+                        }
+                    }
+
                 }
 
                 // c) Send the varible trigger_end to python

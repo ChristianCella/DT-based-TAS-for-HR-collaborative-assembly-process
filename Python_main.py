@@ -41,8 +41,14 @@ x_place_3 = 400
 y_place_3 = 100
 z_place_3 = 200
 
-
-obj_index = np.array([1, 2, 3])
+robot_task_ind = [int(1), int(3)]
+# robot_task_ind = np.array([1, 3])
+#print(f"The number is: {int((x_place_1) * 1000)}, and the type is: {type((x_place_1) * 1000)}")
+#print(f"The number is: {int (robot_task_ind[0]* 1000)} ,and the thype is: {type(robot_task_ind[0]* 1000)}")
+# count the number of robot tasks
+num_robot_task = len(robot_task_ind)
+#obj_index = np.array([1, 2, 3])
+obj_index = [int(1), int(2), int(3)]
 
 # Start the real communication
 
@@ -81,7 +87,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client : # creation of
         # resulting array conatining the 'tentative' layout to be sent to C# code
 
         layout = np.array([[int((x_place_1) * 1000), int((y_place_1) * 1000), int((z_place_1) * 1000), int((obj_index[0]) * 1000),
-                            int((x_place_3) * 1000), int((y_place_3) * 1000), int((z_place_3) * 1000), int((obj_index[2]) * 1000)]])
+                            int((x_place_2) * 1000), int((y_place_2) * 1000), int((z_place_2) * 1000), int((obj_index[1]) * 1000),
+                            int((x_place_3) * 1000), int((y_place_3) * 1000), int((z_place_3) * 1000), int((obj_index[2]) * 1000),
+                            int (robot_task_ind[0]* 1000), int((robot_task_ind[1]) * 1000), int(num_robot_task * 1000)]])
         
         print(f"The tentative layout is : {layout}")
     
@@ -92,6 +100,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client : # creation of
          
         client.sendall(shape_layout.tobytes())
         client.sendall(layout.tobytes())
+        #client.sendall(robot_task_ind.tobytes())
         
         # c Receive the variable 'trigger_end' from C# code (this time this is surely a single number)
         
