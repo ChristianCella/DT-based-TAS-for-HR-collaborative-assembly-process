@@ -12,6 +12,8 @@ using System.Windows.Forms;
 using Tecnomatix.Engineering;
 using System.Collections.Generic;
 using Tecnomatix.Engineering.Olp;
+using System.Collections.Generic;
+using System.Linq;
 //using System.Linq;
 
 class Program
@@ -31,6 +33,7 @@ class Program
         TcpListener server = null;
         try
         {
+
             int base_val = 4;
             int Nsim = 2;
             int time = 1;
@@ -49,7 +52,7 @@ class Program
 
             // Get the robot    	
             TxObjectList objects = TxApplication.ActiveDocument.GetObjectsByName("UR5e");
-            var robot = objects[0] as TxRobot;
+            var robot = objects[1] as TxRobot;
 
             //Define the home position for the robot
             var home_point = new TxVector (301, -133, 290);
@@ -68,7 +71,6 @@ class Program
                 output.Write("The Key Performance Indicator(s) sent to Python are:\n");
                 output.Write(data.ToString());
                 output.Write("\n");
-
                 // b) Get the new 'tentative' layout to run the new simulation
 
                 var receivedArray = ReceiveNumpyArray(client); // static method defined below
@@ -103,24 +105,40 @@ class Program
                     output.Write("The robot id is: \n");
                     output.Write(rob_id.ToString());
                     output.Write("\n");
-                    output.Write("Primo for \n");
+                    output.Write("PRIMO CICLO FOR \n");
 
                     for (int ff = 0; ff < num_op; ff++)
 
                     {
                     
-                        output.Write("Secondo for \n");
+                        output.Write("SECONDO CICLO FOR\n");
                         
-                        output.Write((ff*base_val+3).ToString());
+                        output.Write((ff*base_val+3).ToString() + output.NewLine);
                         output.Write(((receivedArray[0, ff * base_val + 3]) / 1000).ToString() + output.NewLine);
                         int curr_id = (receivedArray[0, ff * base_val + 3]) / 1000;
+                        
                         if (curr_id == rob_id)
 
                         {
-                            CreateRobotOperation(receivedArray[0, ff * base_val]/1000, receivedArray[0, ff * base_val + 1]/1000, receivedArray[0, ff * base_val + 2]/1000, receivedArray[0, ff * base_val + 3], robot);
+                        	output.Write("INSIDE THE IF" + output.NewLine);
+                        	Type type =  (receivedArray[0, ff * base_val + 3] / 1000).GetType();
+                        	output.Write(type.ToString());
+                            CreateRobotOperation(receivedArray[0, ff * base_val]/1000, receivedArray[0, ff * base_val + 1]/1000, receivedArray[0, ff * base_val + 2]/1000, receivedArray[0, ff * base_val + 3] / 1000, robot, output);
+                        	output.Write("OPERATION CREATED");
                         }
                     }
-
+					// Set (in the sequence editor) the desired operation by calling its name  
+					output.Write("Pick&Place_" + rob_id.ToString()); 	
+        			var op = TxApplication.ActiveDocument.OperationRoot.GetAllDescendants(new 
+        			TxTypeFilter(typeof(TxContinuousRoboticOperation))).FirstOrDefault(x => x.Name.Equals("Pick&Place_" + rob_id.ToString())) as 
+        			TxContinuousRoboticOperation;     
+        			TxApplication.ActiveDocument.CurrentOperation = op;
+        			
+        			TxSimulationPlayer simPlayer = TxApplication.ActiveDocument.
+					SimulationPlayer;
+        			
+        			simPlayer.Play();
+        			simPlayer.Rewind();
                 }
 
                 // c) Send the varible trigger_end to python
@@ -212,7 +230,7 @@ class Program
         return result;
     }
 
-    public static void CreateRobotOperation (double xpos, double ypos, double zpos, int object_index, TxRobot robot)
+    public static void CreateRobotOperation (double xpos, double ypos, double zpos, int object_index, TxRobot robot, StringWriter m_output)
     {
     // Define some variables
         string operation_name = "Pick&Place_" + object_index.ToString();
@@ -230,7 +248,7 @@ class Program
 
         string pick_object = "cube_" + object_index.ToString();
 
-
+		m_output.Write("The name of the cube is: " + pick_object + m_output.NewLine);
         // Object to be picked
         TxObjectList selectedObjects = TxApplication.ActiveSelection.GetItems();
         selectedObjects = TxApplication.ActiveDocument.GetObjectsByName(pick_object);
@@ -298,13 +316,14 @@ class Program
         // Implement the logic to access the parameters of the controller		
         TxOlpControllerUtilities ControllerUtils = new TxOlpControllerUtilities();		
         TxRobot AssociatedRobot = ControllerUtils.GetRobot(MyOp); // Verify the correct robot is associated 
-                
+        m_output.Write("ciao" + m_output.NewLine);
         ITxOlpRobotControllerParametersHandler paramHandler = (ITxOlpRobotControllerParametersHandler)
         ControllerUtils.GetInterfaceImplementationFromController(robot.Controller.Name,
         typeof(ITxOlpRobotControllerParametersHandler), typeof(TxRobotSimulationControllerAttribute),
         "ControllerName");
-
-                // Set the new parameters for the waypoint					
+		
+		m_output.Write("miao" + m_output.NewLine);
+        // Set the new parameters for the waypoint					
         paramHandler.OnComplexValueChanged("Tool", new_tcp, FirstPoint);
         paramHandler.OnComplexValueChanged("Motion Type", new_motion_type, FirstPoint);
         paramHandler.OnComplexValueChanged("Speed", new_speed, FirstPoint);

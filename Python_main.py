@@ -41,7 +41,7 @@ x_place_3 = 400
 y_place_3 = 100
 z_place_3 = 200
 
-robot_task_ind = [int(1), int(3)]
+robot_task_ind = [int(1), int(2)]
 # robot_task_ind = np.array([1, 3])
 #print(f"The number is: {int((x_place_1) * 1000)}, and the type is: {type((x_place_1) * 1000)}")
 #print(f"The number is: {int (robot_task_ind[0]* 1000)} ,and the thype is: {type(robot_task_ind[0]* 1000)}")
