@@ -11,7 +11,8 @@ using System.IO;
 using System.Windows.Forms;
 using Tecnomatix.Engineering;
 using System.Collections.Generic;
-using System.Linq;
+using Tecnomatix.Engineering.Olp;
+//using System.Linq;
 
 class Program
 {
@@ -23,14 +24,16 @@ class Program
     static List<int> head_vec = null;
     static List<int> load_vec = null;
     static List<int> avg_owas = null;
+
 	
     static public void Main(ref StringWriter output)
     {
         TcpListener server = null;
         try
         {
+            int base_val = 4;
             int Nsim = 2;
-
+            int time = 1;
             // Start listening for possible connections
             var ipAddress = IPAddress.Parse("127.0.0.1");
             int port = 12345;
@@ -43,55 +46,61 @@ class Program
 			{
 				output.Write("Connection successfully established with the Python server!.\n");
 			}
+
+            // Get the robot    	
+            TxObjectList objects = TxApplication.ActiveDocument.GetObjectsByName("UR5e");
+            var robot = objects[0] as TxRobot;
+
+            //Define the home position for the robot
+            var home_point = new TxVector (301, -133, 290);
+
 			
-            // Define the names of the operations to be run
-            string[] op_names = { "Pick&Place2", "Pick&Place4" };
-
-			// Run both the simulations of the human
-            for (int ii = 0; ii <= Nsim - 1; ii++)
+            for (int ii = 1; ii <= Nsim; ii++)
             {
-    			
-    			// Set (in the sequence editor) the desired operation by calling its name   	
-        		var op = TxApplication.ActiveDocument.OperationRoot.GetAllDescendants(new 
-        		TxTypeFilter(typeof(TxCompoundOperation))).FirstOrDefault(x => x.Name.Equals(op_names[ii])) as 
-        		TxCompoundOperation;     
-        		TxApplication.ActiveDocument.CurrentOperation = op;
-		
-        		// Create a new simulation player
-        		TxSimulationPlayer player = TxApplication.ActiveDocument.SimulationPlayer;
-        		
-        		// Get the result by calling the method'CalculateOWAS'
-        		List<int> owas_op1 = CalculateOWAS(player, output);
 
-                if (verbose)
-                {
-                    // Display the results (Call the method 'DisplayResults')
-        		    DisplayResults(owas_op1, output);                     
-                }
-        		
-                // a) Send the 5 indices of the OWAS score
-                int[] kpis = owas_op1.ToArray(); // pack the KPIs
+                // a) Send the time and RULA kpi(s) of the previous simulation
+
+                int[] kpis = { time + ii}; // pack the KPIs
                 string data = string.Join(",", kpis); // convert tthe array into a string
                 NetworkStream stream1 = client.GetStream(); // open the first stream 
                 byte[] kpi_vec = Encoding.ASCII.GetBytes(data); // ASCII encoding              
                 stream1.Write(kpi_vec, 0, kpi_vec.Length); // Write on the stream
-                output.Write("The Key Performance Indicator(s) sent to Python are: " + data.ToString() + output.NewLine);
+                output.Write("The Key Performance Indicator(s) sent to Python are:\n");
+                output.Write(data.ToString());
+                output.Write("\n");
 
-                // b) Get the resulting score
+                // b) Get the new 'tentative' layout to run the new simulation
+
                 var receivedArray = ReceiveNumpyArray(client); // static method defined below
-                output.Write("The resulting OWAS from python is: " + ArrayToString(receivedArray) + output.NewLine);
+                output.Write("The tentative layout received by the BO is the following vector: \n");
+				output.Write(ArrayToString(receivedArray));
+				output.Write("\n");
+			
+                // conta quante righe ha receivedArray
+
+                int len = receivedArray.GetLength(1);
+
+                int num_op = len / base_val;
+
+
+                for (int jj = 0; jj < num_op; jj++)
+                {
+                    CreateRobotOperation(receivedArray[0, jj * base_val]/1000, receivedArray[0, jj * base_val + 1]/1000, receivedArray[0, jj * base_val + 2]/1000, receivedArray[0, jj * base_val + 3]/1000, robot);
+                }
 
                 // c) Send the varible trigger_end to python
+
                 string trigger_end = ii.ToString(); // convert the current iteration index to string
                 NetworkStream stream2 = client.GetStream(); // open the second stream
                 byte[] byte_trigger_end = Encoding.ASCII.GetBytes(trigger_end); // ASCII encoding           
                 stream2.Write(byte_trigger_end, 0, byte_trigger_end.Length); // Write on the stream
-                output.Write("The current iteration number is sent to Python and it is equal to: " 
-                + trigger_end.ToString() + output.NewLine);
+                output.Write("The current iteration number is sent to Python and it is equal to:\n");
+                output.Write(trigger_end.ToString());
+                output.Write("\n");
+            
+                client.Close();
+            
             }
-
-            // Close the connection after the 'Nsim' simulations
-            client.Close();
         }
         catch (Exception e)
         {
@@ -168,90 +177,119 @@ class Program
         return result;
     }
 
-    public static List<int> CalculateOWAS(TxSimulationPlayer player, StringWriter m_output)
-    {   			
-		// Initialize new lists (same name as the class-specific static variables)
-		back_vec = new List<int>();
-        arm_vec = new List<int>();
-        leg_vec = new List<int>();
-        head_vec = new List<int>();
-        load_vec = new List<int>();
-        avg_owas = new List<int>();
-
-        // Trigger the events
-        player.TimeIntervalReached += new TxSimulationPlayer_TimeIntervalReachedEventHandler(player_TimeIntervalReached);
-        player.Play(); // If no graphical update is needed, write player.PlayWithoutRefresh();
-        player.TimeIntervalReached -= new TxSimulationPlayer_TimeIntervalReachedEventHandler(player_TimeIntervalReached);
-
-        // Compute the average OWAS (all the 5 indices stored in the lists thanks to the event handler)
-        double avg_back_owas_d = back_vec.Average();
-        int avg_back_owas = (int)Math.Round(avg_back_owas_d);
-        double avg_arm_owas_d = arm_vec.Average();
-        int avg_arm_owas = (int)Math.Round(avg_arm_owas_d);
-        double avg_leg_owas_d = leg_vec.Average();
-        int avg_leg_owas = (int)Math.Round(avg_leg_owas_d);
-        double avg_head_owas_d = head_vec.Average();
-        int avg_head_owas = (int)Math.Round(avg_head_owas_d);
-        double avg_load_owas_d = load_vec.Average();
-        int avg_load_owas = (int)Math.Round(avg_load_owas_d);
-
-        // Append the new values
-        avg_owas.Add(avg_back_owas);
-        avg_owas.Add(avg_arm_owas);
-        avg_owas.Add(avg_leg_owas);
-        avg_owas.Add(avg_head_owas);
-        avg_owas.Add(avg_load_owas);
-		
-        // Rewind the simulation once it's over
-        player.Rewind();
-        
-        // Possible display
-        if (verbose)
-        {
-            m_output.Write("The simulation is over" + m_output.NewLine);
-        }
-
-        // Return the average owas
-        return avg_owas;     
-    }
-
-    // Custom method implementing the event handler 'player_TimeIntervalReached'
-    private static void player_TimeIntervalReached(object sender, TxSimulationPlayer_TimeIntervalReachedEventArgs args)
-    {       
-        // Get the human		
-		TxObjectList humans = TxApplication.ActiveSelection.GetItems();
-		humans = TxApplication.ActiveDocument.GetObjectsByName("Jack");
-		TxHuman human = humans[0] as TxHuman;
-		
-		// Save the OWAS code in a struct (called owas_code and obtained by calling the method 'GetOWASCodes')
-		var owas_code = human.GetOWASCodes();
-		
-		// save the 5 single values
-		int back_code = owas_code.BackCode;
-        int arm_code = owas_code.ArmCode;
-        int leg_code = owas_code.LegCode;
-        int head_code = owas_code.HeadCode;
-        int load_code = owas_code.LoadCode;
-		
-        // Append the new values
-		back_vec.Add(back_code);
-        arm_vec.Add(arm_code);
-        leg_vec.Add(leg_code);
-        head_vec.Add(head_code);
-        load_vec.Add(load_code);
-		
-        // Possible display
-		//m_output.Write("Back : " + back_code.ToString() + m_output.NewLine);       
-    } 
-
-    // Custom method to display the results
-    private static void DisplayResults(List<int> owas, StringWriter m_output)
+    public static void CreateRobotOperation (double xpos, double ypos, double zpos, int object_index, TxRobot robot)
     {
-        m_output.Write("average back OWAS: " + owas[0].ToString() + m_output.NewLine);
-        m_output.Write("average arm OWAS: " + owas[1].ToString() + m_output.NewLine);
-        m_output.Write("average leg OWAS: " + owas[2].ToString() + m_output.NewLine);
-        m_output.Write("average head OWAS: " + owas[3].ToString() + m_output.NewLine);
-        m_output.Write("average load OWAS: " + owas[4].ToString() + m_output.NewLine);
+    // Define some variables
+        string operation_name = "Pick&Place_" + object_index.ToString();
+
+        string new_tcp = "tcp_1";
+        string new_motion_type = "MoveL";
+        string new_speed = "1000";
+        string new_accel = "1200";
+        string new_blend = "0";
+        string new_coord = "Cartesian";
+        
+        bool verbose = false; // Controls some display options
+
+        // search the cube that has name cube_(object_index)
+
+        string pick_object = "cube_" + object_index.ToString();
+
+
+        // Object to be picked
+        TxObjectList selectedObjects = TxApplication.ActiveSelection.GetItems();
+        selectedObjects = TxApplication.ActiveDocument.GetObjectsByName(pick_object);
+        var Cube = selectedObjects[0] as ITxLocatableObject;
+ 
+
+        // Create the new operation    	
+        TxContinuousRoboticOperationCreationData data = new TxContinuousRoboticOperationCreationData(operation_name);
+        TxApplication.ActiveDocument.OperationRoot.CreateContinuousRoboticOperation(data);
+         
+
+        // Save the created operartion in a variable
+        TxContinuousRoboticOperation MyOp = TxApplication.ActiveDocument.GetObjectsByName(operation_name)[0] as TxContinuousRoboticOperation;
+
+        // Create all the necessary points       
+        TxRoboticViaLocationOperationCreationData Point1 = new TxRoboticViaLocationOperationCreationData();
+        Point1.Name = "point1"; // First point
+        
+        TxRoboticViaLocationOperationCreationData Point2 = new TxRoboticViaLocationOperationCreationData();
+        Point2.Name = "point2"; // Second point
+        
+        TxRoboticViaLocationOperationCreationData Point3 = new TxRoboticViaLocationOperationCreationData();
+        Point3.Name = "point3"; // Third point
+        
+        TxRoboticViaLocationOperation FirstPoint = MyOp.CreateRoboticViaLocationOperation(Point1);
+        TxRoboticViaLocationOperation SecondPoint = MyOp.CreateRoboticViaLocationOperationAfter(Point2, FirstPoint);
+        TxRoboticViaLocationOperation ThirdPoint = MyOp.CreateRoboticViaLocationOperationAfter(Point3, SecondPoint);
+        
+        // Impose a position to the new waypoint
+
+        var cube_pos = new TxTransformation(Cube.LocationRelativeToWorkingFrame);
+
+        double rotVal1 = Math.PI;
+        TxTransformation rotX1 = new TxTransformation(new TxVector(rotVal1, 0, 0), 
+        TxTransformation.TxRotationType.RPY_XYZ);
+        FirstPoint.AbsoluteLocation = rotX1;
+        
+        var pointA = new TxTransformation(FirstPoint.AbsoluteLocation);
+        pointA.Translation = new TxVector(cube_pos[0, 3], cube_pos[1, 3], cube_pos[2, 3]);
+        FirstPoint.AbsoluteLocation = pointA;
+        
+        // Impose a position to the second waypoint		
+        double rotVal2 = Math.PI;
+        TxTransformation rotX2 = new TxTransformation(new TxVector(rotVal2, 0, 0), 
+        TxTransformation.TxRotationType.RPY_XYZ);
+        SecondPoint.AbsoluteLocation = rotX2;
+        
+        var pointB = new TxTransformation(SecondPoint.AbsoluteLocation);
+        pointB.Translation = new TxVector(xpos, ypos, zpos);
+        SecondPoint.AbsoluteLocation = pointB;
+        
+        // Impose a position to the third waypoint		
+        double rotVal3 = Math.PI;
+        TxTransformation rotX3 = new TxTransformation(new TxVector(rotVal3, 0, 0), 
+        TxTransformation.TxRotationType.RPY_XYZ);
+        ThirdPoint.AbsoluteLocation = rotX3;
+        
+        var pointC = new TxTransformation(ThirdPoint.AbsoluteLocation);
+        pointC.Translation = new TxVector(300, 0, 300);
+        ThirdPoint.AbsoluteLocation = pointC;
+
+        // NOTE: you must associate the robot to the operation!
+        MyOp.Robot = robot; 
+
+        // Implement the logic to access the parameters of the controller		
+        TxOlpControllerUtilities ControllerUtils = new TxOlpControllerUtilities();		
+        TxRobot AssociatedRobot = ControllerUtils.GetRobot(MyOp); // Verify the correct robot is associated 
+                
+        ITxOlpRobotControllerParametersHandler paramHandler = (ITxOlpRobotControllerParametersHandler)
+        ControllerUtils.GetInterfaceImplementationFromController(robot.Controller.Name,
+        typeof(ITxOlpRobotControllerParametersHandler), typeof(TxRobotSimulationControllerAttribute),
+        "ControllerName");
+
+                // Set the new parameters for the waypoint					
+        paramHandler.OnComplexValueChanged("Tool", new_tcp, FirstPoint);
+        paramHandler.OnComplexValueChanged("Motion Type", new_motion_type, FirstPoint);
+        paramHandler.OnComplexValueChanged("Speed", new_speed, FirstPoint);
+        paramHandler.OnComplexValueChanged("Accel", new_accel, FirstPoint);
+        paramHandler.OnComplexValueChanged("Blend", new_blend, FirstPoint);
+        paramHandler.OnComplexValueChanged("Coord Type", new_coord, FirstPoint);
+        
+        paramHandler.OnComplexValueChanged("Tool", new_tcp, SecondPoint);
+        paramHandler.OnComplexValueChanged("Motion Type", new_motion_type, SecondPoint);
+        paramHandler.OnComplexValueChanged("Speed", new_speed, SecondPoint);
+        paramHandler.OnComplexValueChanged("Accel", new_accel, SecondPoint);
+        paramHandler.OnComplexValueChanged("Blend", new_blend, SecondPoint);
+        paramHandler.OnComplexValueChanged("Coord Type", new_coord, SecondPoint);
+        
+        paramHandler.OnComplexValueChanged("Tool", new_tcp, ThirdPoint);
+        paramHandler.OnComplexValueChanged("Motion Type", new_motion_type, ThirdPoint);
+        paramHandler.OnComplexValueChanged("Speed", new_speed, ThirdPoint);
+        paramHandler.OnComplexValueChanged("Accel", new_accel, ThirdPoint);
+        paramHandler.OnComplexValueChanged("Blend", new_blend, ThirdPoint);
+        paramHandler.OnComplexValueChanged("Coord Type", new_coord, ThirdPoint);
     }
 }
 
